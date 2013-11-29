@@ -1,0 +1,20 @@
+{
+    "name":"fablab_prototype"	
+  , "version": "0.0.1"
+  , "private": true
+  , "dependencies": {
+      "colors":"latest"
+    , "winston":"latest"
+	, "gith":"latest"
+  }
+  ,"engines":{
+        "node":"latest"
+    }
+  ,"devDependencies":{
+        "mocha":"latest"
+	  , "benchmark": "latest"
+	  , "microtime": "latest"
+      , "should": "latest"
+      , "supertest": "latest"
+    }
+}
