@@ -4,9 +4,37 @@ var execFile = require('child_process').execFile,
 	colors = require('colors'),
 	winston = require('winston');
 
-
+var opts = require('optimist')
+        .usage('Usage: $0')
+        .options({
+                help: {
+                        demand: false,
+                        alias: 'h',
+                        description: 'Show this help'
+                },
+                debug: {
+                        demand: false,
+                        alias: 'd',
+                        description: 'debug',
+                        default: false
+                },
+                port: {
+                        demand: true,
+                        alias: 'p',
+                        description: 'port',
+                        default: process.env.PORT || 8080,
+                }
+        }).argv;
+  ; 
+ // Show help if asked
+if (opts.help) {
+    optimist.showHelp();
+    process.exit(0);
+} 
+  
 // http://fideloper.com/node-github-autodeploy
 // https://github.com/danheberden/gith	
+// https://github.com/G33kLabs/g33k-webhooks/blob/master/src/app.js
 
 var GithServer = function(){	
     var logger = new (winston.Logger)({
@@ -185,32 +213,51 @@ var gith = require('gith').create( 8080 );
 gith({
     repo: 'helxsz/sensorexample'
 }).on( 'all', function( payload ) {
-    if( payload.branch === 'master' )
-    {
-        //console.log('all',payload ); 
-            // Exec a shell script
-		console.log(__dirname+'/hook.sh');
-        execFile(__dirname+'/hook.sh', function(error, stdout, stderr) {
-                    // Log success in some manner
-			if(error) console.log("error",error);
-			else console.log( 'exec complete',stdout );
-        });		
-    }
-}).on( 'file:add', function( payload ) {
-    if( payload.branch === 'master' )
-    {
-        console.log( 'these files were added', payload.files.added, payload.time ); 
-    }
-}).on( 'file:modify', function( payload ) {
-    if( payload.branch === 'master' )
-    {
-        console.log( 'these files were modifyed', payload.files.modified, payload.time );
-    }
-}).on( 'file:delete', function( payload ) {
-    if( payload.branch === 'master' )
-    {
-        console.log( 'these files were deleted', payload.files.deleted, payload.time );
-    }
+        // Debug payload
+        winston.warn('[>] Post-commit happened on '+payload.repo+' !');
+        //winston.info(JSON.stringify(payload, null, 4)); 
+
+        // Set post-commit script path
+        var postCommit = path.resolve('./repos/'+payload.repo+'/post-commit');
+
+        // Find post-commit script and exec it
+        async.series({
+
+                // Search for post-commit script
+                exists: function(next) {
+                        fs.exists(postCommit, function(exists) {
+                                next(!exists?'No post-commit found for '+postCommit:null);
+                        });
+                },
+
+                // Run
+                execute: function(next) {
+                        winston.info('[>] Launch post-commit : '+postCommit+'...'); 
+                        var post_commit = spawn('/bin/sh', [postCommit]); 
+
+                        // Pipe logs
+                        post_commit.stdout.setEncoding('utf8');
+                        post_commit.stderr.setEncoding('utf8');
+                        post_commit.stdout.on('data', winston.debug);
+                        post_commit.stderr.on('data', winston.debug);
+
+                        // On close
+                        post_commit.on('close', function (code) {
+                                console.log('child process exited with code ' + code);
+                                next(); 
+                        });        
+                }
+        },
+
+        // Response
+        function(err, success) {
+                if ( err ) {
+                        winston.error(err);
+                }
+                else {
+                        winston.info('post-commit script exists for '+payload.repo); 
+                }
+        });
 });
 
 */
